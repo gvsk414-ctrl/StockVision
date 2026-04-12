@@ -7,27 +7,27 @@ from PIL import Image
 from io import BytesIO
 
 # =========================
-# PAGE CONFIG (UPDATED NAME)
+# PAGE CONFIG
 # =========================
 st.set_page_config(page_title="Stock Vision", layout="wide")
 
 # =========================
-# 🔥 CACHE (FIXED)
+# ✅ SAFE CACHE (ONLY DATA)
 # =========================
 @st.cache_data(ttl=120)
 def get_data(symbol, period):
     try:
         ticker = yf.Ticker(symbol)
         data = ticker.history(period=period)
-        time.sleep(1)  # prevent rate limit
+        time.sleep(1)
         if data.empty:
-            return None, None
-        return data, ticker
+            return None
+        return data
     except:
-        return None, None
+        return None
 
 # =========================
-# CUSTOM CSS (UNCHANGED)
+# CUSTOM CSS
 # =========================
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
@@ -86,7 +86,7 @@ auto_refresh = st.sidebar.checkbox("Enable Auto Refresh")
 refresh_rate = st.sidebar.slider("Refresh Rate (seconds)", 5, 60, 10)
 
 # =========================
-# TITLE (UPDATED)
+# TITLE
 # =========================
 st.title("📊 Stock Vision")
 
@@ -96,16 +96,17 @@ tab1, tab2, tab3 = st.tabs(["📊 Overview", "📈 Charts", "⚖️ Comparison"]
 # FETCH DATA
 # =========================
 with st.spinner("Fetching data..."):
-    data1, ticker1 = get_data(stock1, period)
+    data1 = get_data(stock1, period)
 
     if data1 is None:
         st.error("⚠️ Unable to fetch stock data. Try again later.")
         st.stop()
 
-    data2, ticker2 = (get_data(stock2, period) if stock2 else (None, None))
+    ticker1 = yf.Ticker(stock1)  # NOT cached (important)
+
+    data2 = get_data(stock2, period) if stock2 else None
 
 data = data1
-ticker = ticker1
 
 # =========================
 # INDICATORS
@@ -114,10 +115,10 @@ data["MA50"] = data["Close"].rolling(50).mean()
 data["MA100"] = data["Close"].rolling(100).mean()
 
 delta = data["Close"].diff()
-gain = (delta.where(delta>0,0)).rolling(14).mean()
-loss = (-delta.where(delta<0,0)).rolling(14).mean()
-rs = gain/loss
-data["RSI"] = 100-(100/(1+rs))
+gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+rs = gain / loss
+data["RSI"] = 100 - (100 / (1 + rs))
 
 # =========================
 # TAB 1: OVERVIEW
@@ -126,7 +127,7 @@ with tab1:
     st.markdown('<div class="tab-content">', unsafe_allow_html=True)
 
     try:
-        info = ticker.info
+        info = ticker1.info
     except:
         info = {}
 
@@ -134,7 +135,7 @@ with tab1:
     col1, col2, col3 = st.columns(3)
 
     logo_img = None
-    logo_url = info.get('logo_url','')
+    logo_url = info.get('logo_url', '')
     if logo_url:
         try:
             response = requests.get(logo_url, timeout=3)
@@ -160,14 +161,15 @@ with tab1:
     st.markdown("---")
 
     col1, col2, col3 = st.columns(3)
+
     price = data["Close"].iloc[-1]
     prev = data["Close"].iloc[-2]
-    change = price-prev
-    pct = (change/prev)*100
+    change = price - prev
+    pct = (change / prev) * 100
 
-    trend = "Bullish" if data["MA50"].iloc[-1]>data["MA100"].iloc[-1] else "Bearish"
+    trend = "Bullish" if data["MA50"].iloc[-1] > data["MA100"].iloc[-1] else "Bearish"
     rsi = data["RSI"].iloc[-1]
-    rsi_status = "Overbought" if rsi>70 else ("Oversold" if rsi<30 else "Neutral")
+    rsi_status = "Overbought" if rsi > 70 else ("Oversold" if rsi < 30 else "Neutral")
 
     with col1:
         st.markdown(f"<div class='metric-card'><div class='metric-title'>💰 Price</div><div class='metric-value'>{round(price,2)}</div><div class='metric-change'>{round(change,2)} ({round(pct,2)}%)</div></div>", unsafe_allow_html=True)
@@ -194,10 +196,11 @@ with tab2:
         low=data["Low"],
         close=data["Close"]
     ))
+
     fig.add_trace(go.Scatter(x=data.index, y=data["MA50"], name="MA50"))
     fig.add_trace(go.Scatter(x=data.index, y=data["MA100"], name="MA100"))
-    fig.update_layout(template="plotly_dark", height=500)
 
+    fig.update_layout(template="plotly_dark", height=500)
     st.plotly_chart(fig)
 
     st.markdown('</div>', unsafe_allow_html=True)
