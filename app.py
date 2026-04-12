@@ -6,7 +6,7 @@ import requests
 from PIL import Image
 from io import BytesIO
 
-st.set_page_config(page_title="Pro Stock & ETF Dashboard", layout="wide")
+st.set_page_config(page_title="stock vision ", layout="wide")
 
 # =========================
 # 🔥 CACHE (IMPORTANT FIX)
